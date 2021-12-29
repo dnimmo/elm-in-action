@@ -1,15 +1,28 @@
 module PhotoGroove exposing (main)
 
+import Array exposing (Array)
 import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 
 
+type alias Model =
+    { photos : List Photo
+    , selectedUrl : String
+    }
+
+
+type alias Photo =
+    { url : String }
+
+
+urlPrefix : String
 urlPrefix =
     "http://elm-in-action.com/"
 
 
+view : Model -> Html Msg
 view model =
     div [ class "content" ]
         [ h1 [] [ text "Photo Groove" ]
@@ -23,6 +36,12 @@ view model =
         ]
 
 
+photoArray : Array Photo
+photoArray =
+    Array.fromList initialModel.photos
+
+
+viewThumbnail : String -> Photo -> Html Msg
 viewThumbnail selectedUrl thumb =
     img
         [ src (urlPrefix ++ thumb.url)
@@ -32,6 +51,7 @@ viewThumbnail selectedUrl thumb =
         []
 
 
+initialModel : Model
 initialModel =
     { photos =
         [ { url = "1.jpeg" }
@@ -42,6 +62,13 @@ initialModel =
     }
 
 
+type alias Msg =
+    { description : String
+    , data : String
+    }
+
+
+update : Msg -> Model -> Model
 update msg model =
     if msg.description == "ClickedPhoto" then
         { model | selectedUrl = msg.data }
@@ -50,6 +77,7 @@ update msg model =
         model
 
 
+main : Program () Model Msg
 main =
     Browser.sandbox
         { init = initialModel
