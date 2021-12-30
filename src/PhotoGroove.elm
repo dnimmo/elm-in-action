@@ -4,6 +4,7 @@ import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import Http
 import Random
 import Tuple
 
@@ -18,6 +19,7 @@ type Msg
     | ClickedSize ThumbnailSize
     | ClickedSurpriseMe
     | GotRandomPhoto Photo
+    | GotPhotos (Result Http.Error String)
 
 
 view : Model -> Html Msg
@@ -117,6 +119,23 @@ initialModel =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        GotPhotos result ->
+            case result of
+                Ok responseStr ->
+                    case String.split "," responseStr of
+                        (firstUrl :: _) as urls ->
+                            let
+                                photos =
+                                    List.map (\url -> { url = url }) urls
+                            in
+                            ( { model | status = Loaded photos firstUrl }, Cmd.none )
+
+                        [] ->
+                            ( { model | status = Errored "0 photos found" }, Cmd.none )
+
+                Err httpError ->
+                    ( { model | status = Errored "Server error!" }, Cmd.none )
+
         GotRandomPhoto photo ->
             ( { model | status = selectUrl photo.url model.status }, Cmd.none )
 
