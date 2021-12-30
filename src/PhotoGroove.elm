@@ -2,11 +2,12 @@ module PhotoGroove exposing (main)
 
 import Browser
 import Html exposing (..)
-import Html.Attributes exposing (..)
+import Html.Attributes exposing (class, classList, id, name, src, title, type_)
 import Html.Events exposing (onClick)
 import Http
+import Json.Decode exposing (Decoder, bool, int, list, string, succeed)
+import Json.Decode.Pipeline exposing (optional, required)
 import Random
-import Tuple
 
 
 urlPrefix : String
@@ -19,13 +20,13 @@ type Msg
     | ClickedSize ThumbnailSize
     | ClickedSurpriseMe
     | GotRandomPhoto Photo
-    | GotPhotos (Result Http.Error String)
+    | GotPhotos (Result Http.Error (List Photo))
 
 
 view : Model -> Html Msg
 view model =
-    div [ class "content" ]
-        (case model.status of
+    div [ class "content" ] <|
+        case model.status of
             Loaded photos selectedUrl ->
                 viewLoaded photos selectedUrl model.chosenSize
 
@@ -34,7 +35,6 @@ view model =
 
             Errored errorMessage ->
                 [ text ("Error: " ++ errorMessage) ]
-        )
 
 
 viewLoaded : List Photo -> String -> ThumbnailSize -> List (Html Msg)
@@ -44,13 +44,13 @@ viewLoaded photos selectedUrl chosenSize =
         [ onClick ClickedSurpriseMe ]
         [ text "Surprise Me!" ]
     , h3 [] [ text "Thumbnail Size:" ]
-    , div [ id "choose-size" ] <|
-        List.map viewSizeChooser [ Small, Medium, Large ]
-    , div [ id "thumbnails", class (sizeToString chosenSize) ] <|
-        List.map (viewThumbnail selectedUrl) photos
+    , div [ id "choose-size" ]
+        (List.map viewSizeChooser [ Small, Medium, Large ])
+    , div [ id "thumbnails", class (sizeToString chosenSize) ]
+        (List.map (viewThumbnail selectedUrl) photos)
     , img
         [ class "large"
-        , src <| urlPrefix ++ "large/" ++ selectedUrl
+        , src (urlPrefix ++ "large/" ++ selectedUrl)
         ]
         []
     ]
@@ -60,6 +60,7 @@ viewThumbnail : String -> Photo -> Html Msg
 viewThumbnail selectedUrl thumb =
     img
         [ src (urlPrefix ++ thumb.url)
+        , title (thumb.title ++ " [" ++ String.fromInt thumb.size ++ " KB]")
         , classList [ ( "selected", selectedUrl == thumb.url ) ]
         , onClick (ClickedPhoto thumb.url)
         ]
@@ -94,7 +95,18 @@ type ThumbnailSize
 
 
 type alias Photo =
-    { url : String }
+    { url : String
+    , size : Int
+    , title : String
+    }
+
+
+photoDecoder : Decoder Photo
+photoDecoder =
+    succeed Photo
+        |> required "url" string
+        |> required "size" int
+        |> optional "title" string "(untitled)"
 
 
 type Status
@@ -119,21 +131,6 @@ initialModel =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        GotPhotos (Ok responseStr) ->
-            case String.split "," responseStr of
-                (firstUrl :: _) as urls ->
-                    let
-                        photos =
-                            List.map Photo urls
-                    in
-                    ( { model | status = Loaded photos firstUrl }, Cmd.none )
-
-                [] ->
-                    ( { model | status = Errored "0 photos found" }, Cmd.none )
-
-        GotPhotos (Err httpError) ->
-            ( { model | status = Errored "Server error!" }, Cmd.none )
-
         GotRandomPhoto photo ->
             ( { model | status = selectUrl photo.url model.status }, Cmd.none )
 
@@ -159,6 +156,19 @@ update msg model =
                 Errored errorMessage ->
                     ( model, Cmd.none )
 
+        GotPhotos (Ok photos) ->
+            case photos of
+                first :: rest ->
+                    ( { model | status = Loaded photos first.url }
+                    , Cmd.none
+                    )
+
+                [] ->
+                    ( { model | status = Errored "0 photos found" }, Cmd.none )
+
+        GotPhotos (Err httpError) ->
+            ( { model | status = Errored "Server error!" }, Cmd.none )
+
 
 selectUrl : String -> Status -> Status
 selectUrl url status =
@@ -176,15 +186,15 @@ selectUrl url status =
 initialCmd : Cmd Msg
 initialCmd =
     Http.get
-        { url = "http://elm-in-action.com/photos/list"
-        , expect = Http.expectString GotPhotos
+        { url = "http://elm-in-action.com/photos/list.json"
+        , expect = Http.expectJson GotPhotos (list photoDecoder)
         }
 
 
 main : Program () Model Msg
 main =
     Browser.element
-        { init = \_ -> ( initialModel, initialCmd )
+        { init = \flags -> ( initialModel, initialCmd )
         , view = view
         , update = update
         , subscriptions = \_ -> Sub.none
