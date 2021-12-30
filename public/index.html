@@ -3,6 +3,14 @@
 
 <head>
     <script>
+        /* 
+        * What's happening here? 
+        * I'm defining a custom element, called range-slider, 
+        * in order to show an example of JS components being usable in an Elm application
+        * 
+        * Warning: Whilst they are usable, including JS components does introduce the possibility of runtime errors.
+        * Think carefully about whether this is really worth it.
+        */
         class RangeSlider extends HTMLElement {
             connectedCallback() {
                 var input = document.createElement("input");
@@ -14,6 +22,17 @@
                     sliders: 1,
                     grid: false
                 });
+
+                var rangeSliderNode = this;
+
+                jsr.addEventListener("update", function (elem, value) {
+                    var event = new CustomEvent("slide", {
+                        detail: { userSlidTo: value }
+                    });
+
+                    rangeSliderNode.dispatchEvent(event);
+                });
+
             }
         }
 
@@ -29,9 +48,14 @@
 <body>
     <div id="app"></div>
 
+    <script src="http://elm-in-action.com/pasta.js"></script>
     <script src="app.js"></script>
     <script>
-        Elm.PhotoGroove.init({ node: document.getElementById("app") });
+        var app = Elm.PhotoGroove.init({ node: document.getElementById("app") });
+
+        app.ports.setFilters.subscribe(function (options) {
+            Pasta.apply(document.getElementById("main-canvas"), options);
+        });
     </script>
 </body>
 
