@@ -1,4 +1,4 @@
-module PhotoGrooveTests exposing
+module PhotoGalleryTests exposing
     ( clickThumbnail
     , decoderTest
     , photoFromUrl
@@ -15,7 +15,7 @@ import Fuzz exposing (Fuzzer, int, list, string)
 import Html.Attributes as Attr exposing (src)
 import Json.Decode as Decode exposing (decodeValue)
 import Json.Encode as Encode
-import PhotoGroove
+import PhotoGallery
     exposing
         ( Model
         , Msg(..)
